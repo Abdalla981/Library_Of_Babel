@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "libraryofbabel-info-algo"
+version = "0.1.0"
+description = ""
+authors = ["Abdalla MOUSTAFA <abdalla.moustafa@cpii.hk>"]
+readme = "README.md"
+packages = [{include = "libraryofbabel"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
