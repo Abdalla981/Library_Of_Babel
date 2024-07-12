@@ -1,5 +1,6 @@
 import math
 import os
+import random
 import sys
 from dataclasses import dataclass
 from typing import Tuple
@@ -106,7 +107,7 @@ class Library:
     )
     main_menu_text = (
         "Please choose one of the options below:\n1. Browse (1)\n"
-        "2. Search (2)\n3. Print topology (3)\n\nQuit (-1)\n\n"
+        "2. Search (2)\n3. Random page (3)\n4. Print topology (4)\n\nQuit (-1)\n\n"
     )
     browse_menu_hex_text = (
         "Please specify the location of the hex "
@@ -132,6 +133,12 @@ class Library:
         "of the following options:\n1. Search again (1)\n2. Return to Main Menu (2)\n"
         "3. Save (3)\n\nQuit (-1)\n\n"
     )
+    random_menu_text = (
+        "\n\nThe following is a random page in the library:\n\n%s\n\nis found on page "
+        "%s of book %s on shelve %s. The shelve is found by wall %s in hex %s\n"
+        "Location: %s\n\nPlease choose one of the following options:\n1. Random again "
+        "(1)\n2. Return to Main Menu (2)\n3. Save (3)\n\nQuit (-1)\n\n"
+    )
     print_topology_text = (
         "The library topology is as follow:\n\n%s\n\nPlease choose "
         "one of the following:\n1. Go back to Main Menu (1)\n\nQuit (-1)\n\n"
@@ -144,7 +151,7 @@ class Library:
         self.hex_conversion = BaseConversion(alphabet=hex_alphabet)
         self.init_stats()
 
-    def init_stats(self):
+    def init_stats(self) -> None:
         self.topology = LibraryTopology(no_of_alphabets=len(self.alphabet))
         self.no_of_pages = Size(
             value=self.topology.no_of_alphabets**self.topology.chars_per_page,
@@ -185,6 +192,8 @@ class Library:
             if user_input == "2":
                 self.search()
             if user_input == "3":
+                self.random()
+            if user_input == "4":
                 self.print_topology()
             os.system("cls" if os.name == "nt" else "clear")
 
@@ -206,7 +215,7 @@ class Library:
                 self.save_result(result, stamp)
                 break
 
-    def search(self):
+    def search(self) -> None:
         while True:
             os.system("cls" if os.name == "nt" else "clear")
             text = self.get_user_input(self.search_menu_text, "str", bound=3200)
@@ -234,7 +243,34 @@ class Library:
                 self.save_result(result, stamp)
                 break
 
-    def print_topology(self):
+    def random(self):
+        while True:
+            page_no = random.randint(0, self.no_of_pages.value)
+            text = self.conversion.encode(page_no)
+            location = self.get_location(text)
+            stamp = self.get_stamp(location)
+            result = self.random_menu_text % (
+                text,
+                location.page_id,
+                location.book_id,
+                location.shelve_id,
+                location.wall_id,
+                location.hex_id,
+                stamp,
+            )
+            print(result)
+            user_input = input()
+            if user_input == "-1":
+                exit()
+            if user_input == "1":
+                continue
+            if user_input == "2":
+                break
+            if user_input == "3":
+                self.save_result(result, stamp)
+                break
+
+    def print_topology(self) -> None:
         while True:
             os.system("cls" if os.name == "nt" else "clear")
             print(self.print_topology_text % self)
