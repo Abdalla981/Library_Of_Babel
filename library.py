@@ -13,7 +13,7 @@ ALPHABET = "abcdefghijklmnopqrstuvwxyz ,."
 HEX_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz"
 
 
-class BaseConversion:
+class BaseX:
     def __init__(self, alphabet):
         self.alphabet = alphabet
         self.alphabet_dict = dict((c, i) for i, c in enumerate(alphabet))
@@ -69,10 +69,10 @@ class Size:
 @dataclass
 class Location:
     hex_id: str
-    wall_id: str
-    shelve_id: str
-    book_id: str
-    page_id: str
+    wall_id: int
+    shelve_id: int
+    book_id: int
+    page_id: int
 
 
 @dataclass
@@ -122,7 +122,12 @@ class Library:
     browse_menu_result_text = (
         "\n\nThe text on the page is\n\n %s \n\nPlease choose one "
         "of the following options:\n1. Browse again (1)\n2. Return to Main Menu (2)\n"
-        "3. Save (3)\n\nQuit (-1)\n\n"
+        "3. Next page (3)\n4. Previous page (4)\n5. Save (5)\n\nQuit (-1)\n\n"
+    )
+    browse_book_text = (
+        "Book location: %s\n\n%s\n\nPlease choose an option from below:"
+        "\n1. Next page (1)\n2. Previous page (2)\n3. Return to Main Menu (3)"
+        "\n4. Save result (4)\nQuit (-1)\n\n"
     )
     search_menu_text = (
         "Please specify the text you are searching for " "(3200 characters max):\n\n"
@@ -131,13 +136,14 @@ class Library:
         "\n\nThe following text:\n\n%s\n\nis found on page %s of book %s on shelve %s. "
         "The shelve is found by wall %s in hex %s\nLocation: %s\n\nPlease choose one "
         "of the following options:\n1. Search again (1)\n2. Return to Main Menu (2)\n"
-        "3. Save (3)\n\nQuit (-1)\n\n"
+        "3. Next Page (3)\n4. Previous Page (4)\n5. Save (5)\n\nQuit (-1)\n\n"
     )
     random_menu_text = (
         "\n\nThe following is a random page in the library:\n\n%s\n\nis found on page "
         "%s of book %s on shelve %s. The shelve is found by wall %s in hex %s\n"
         "Location: %s\n\nPlease choose one of the following options:\n1. Random again "
-        "(1)\n2. Return to Main Menu (2)\n3. Save (3)\n\nQuit (-1)\n\n"
+        "(1)\n2. Return to Main Menu (2)\n3. Next Page (3)\n4. Previous Page (4)\n"
+        "5. Save (5)\n\nQuit (-1)\n\n"
     )
     print_topology_text = (
         "The library topology is as follow:\n\n%s\n\nPlease choose "
@@ -147,8 +153,8 @@ class Library:
     def __init__(self, alphabet=ALPHABET, hex_alphabet=HEX_ALPHABET) -> None:
         self.alphabet = alphabet
         self.hex_alphabet = hex_alphabet
-        self.conversion = BaseConversion(alphabet=alphabet)
-        self.hex_conversion = BaseConversion(alphabet=hex_alphabet)
+        self.conversion = BaseX(alphabet=alphabet)
+        self.hex_conversion = BaseX(alphabet=hex_alphabet)
         self.init_stats()
 
     def init_stats(self) -> None:
@@ -180,7 +186,7 @@ class Library:
         )
 
     def run(self) -> None:
-        os.system("cls" if os.name == "nt" else "clear")
+        self.clear_screen()
         print(self.start_screen_text)
         while True:
             print(self.main_menu_text)
@@ -195,15 +201,14 @@ class Library:
                 self.random()
             if user_input == "4":
                 self.print_topology()
-            os.system("cls" if os.name == "nt" else "clear")
+            self.clear_screen()
 
     def browse(self) -> None:
         while True:
-            os.system("cls" if os.name == "nt" else "clear")
-            location, text = self.get_text()
-            stamp = self.get_stamp(location)
-            result = self.browse_menu_result_text % text
-            print(result)
+            self.clear_screen()
+            location = self.get_location_from_user()
+            text, stamp = self.get_page_content(location)
+            print(self.browse_menu_result_text % text)
             user_input = input()
             if user_input == "-1":
                 exit()
@@ -212,15 +217,23 @@ class Library:
             if user_input == "2":
                 break
             if user_input == "3":
-                self.save_result(result, stamp)
+                next_location = self.next(location)
+                self.browse_book(next_location)
+                break
+            if user_input == "4":
+                prev_location = self.previous(location)
+                self.browse_book(prev_location)
+                break
+            if user_input == "3":
+                self.save_result(self.browse_menu_result_text % text, stamp)
                 break
 
     def search(self) -> None:
         while True:
-            os.system("cls" if os.name == "nt" else "clear")
+            self.clear_screen()
             text = self.get_user_input(self.search_menu_text, "str", bound=3200)
             text = self.normalise_text(text)
-            location = self.get_location(text)
+            location = self.get_location_from_text(text)
             stamp = self.get_stamp(location)
             result = self.search_menu_result_text % (
                 text,
@@ -240,14 +253,23 @@ class Library:
             if user_input == "2":
                 break
             if user_input == "3":
+                next_location = self.next(location)
+                self.browse_book(next_location)
+                break
+            if user_input == "4":
+                prev_location = self.previous(location)
+                self.browse_book(prev_location)
+                break
+            if user_input == "5":
                 self.save_result(result, stamp)
                 break
 
     def random(self):
         while True:
+            self.clear_screen()
             page_no = random.randint(0, self.no_of_pages.value)
             text = self.conversion.encode(page_no)
-            location = self.get_location(text)
+            location = self.get_location_from_text(text)
             stamp = self.get_stamp(location)
             result = self.random_menu_text % (
                 text,
@@ -267,18 +289,115 @@ class Library:
             if user_input == "2":
                 break
             if user_input == "3":
+                next_location = self.next(location)
+                self.browse_book(next_location)
+                break
+            if user_input == "4":
+                prev_location = self.previous(location)
+                self.browse_book(prev_location)
+                break
+            if user_input == "5":
                 self.save_result(result, stamp)
                 break
 
+    def browse_book(self, location: Location):
+        while True:
+            self.clear_screen()
+            text, stamp = self.get_page_content(location)
+            print(self.browse_book_text % (stamp, text))
+            user_input = input()
+            if user_input == "1":
+                next_location = self.next(location)
+                self.browse_book(next_location)
+                break
+            if user_input == "2":
+                prev_location = self.previous(location)
+                self.browse_book(prev_location)
+                break
+            if user_input == "3":
+                break
+            if user_input == "4":
+                self.save_result(self.browse_book_text % (stamp, text), stamp)
+                break
+            if user_input == "-1":
+                exit()
+
     def print_topology(self) -> None:
         while True:
-            os.system("cls" if os.name == "nt" else "clear")
+            self.clear_screen()
             print(self.print_topology_text % self)
             user_input = input()
             if user_input == "-1":
                 exit()
             if user_input == "1":
                 break
+
+    def next(self, location: Location) -> Location:
+        if location.page_id < self.topology.pages_per_book:
+            location.page_id += 1
+        elif location.book_id < self.topology.books_per_shelve:
+            location.page_id = 1
+            location.book_id += 1
+        elif location.shelve_id < self.topology.shelves_per_wall:
+            location.page_id = 1
+            location.book_id = 1
+            location.shelve_id += 1
+        elif location.wall_id < self.topology.walls_per_hex:
+            location.page_id = 1
+            location.book_id = 1
+            location.shelve_id = 1
+            location.wall_id += 1
+        elif self.hex_conversion.decode(location.hex_id) < self.no_of_hexes.value:
+            location.page_id = 1
+            location.book_id = 1
+            location.shelve_id = 1
+            location.wall_id = 1
+            location.hex_id = self.hex_conversion.encode(
+                self.hex_conversion.decode(location.hex_id) + 1
+            )
+        else:
+            location.page_id = 1
+            location.book_id = 1
+            location.shelve_id = 1
+            location.wall_id = 1
+            location.hex_id = "0"
+        return location
+
+    def previous(self, location: Location) -> Location:
+        if location.page_id > 1:
+            location.page_id -= 1
+        elif location.book_id > 1:
+            location.page_id = self.topology.pages_per_book
+            location.book_id -= 1
+        elif location.shelve_id > 1:
+            location.page_id = self.topology.pages_per_book
+            location.book_id = self.topology.books_per_shelve
+            location.shelve_id -= 1
+        elif location.wall_id > 1:
+            location.page_id = self.topology.pages_per_book
+            location.book_id = self.topology.books_per_shelve
+            location.shelve_id = self.topology.shelves_per_wall
+            location.wall_id -= 1
+        elif self.hex_conversion.decode(location.hex_id) > 0:
+            location.page_id = self.topology.pages_per_book
+            location.book_id = self.topology.books_per_shelve
+            location.shelve_id = self.topology.shelves_per_wall
+            location.wall_id = self.topology.walls_per_hex
+            location.hex_id = self.hex_conversion.encode(
+                self.hex_conversion.decode(location.hex_id) - 1
+            )
+        else:
+            location.page_id = self.topology.pages_per_book
+            location.book_id = self.topology.books_per_shelve
+            location.shelve_id = self.topology.shelves_per_wall
+            location.wall_id = self.topology.walls_per_hex
+            location.hex_id = self.hex_conversion.encode(self.no_of_hexes)
+        return location
+
+    def get_page_content(self, location: Location) -> Tuple[str, str]:
+        text = self.get_text_from_location(location)
+        stamp = self.get_stamp(location)
+        return text, stamp
 
     def normalise_text(self, text: str) -> str:
         normalise_text = ""
@@ -287,33 +406,32 @@ class Library:
                 normalise_text += char
         return normalise_text
 
-    def get_text(self) -> Tuple[str, str]:
+    def get_location_from_user(self) -> Location:
         hex_id = self.get_user_input(self.browse_menu_hex_text, "str", 3003)
+        wall_id = self.get_user_input(self.browse_menu_wall_text, "int", 4)
+        shelve_id = self.get_user_input(self.browse_menu_shelve_text, "int", 5)
+        book_id = self.get_user_input(self.browse_menu_book_text, "int", 32)
+        page_id = self.get_user_input(self.browse_menu_page_text, "int", 410)
+        location = Location(
+            hex_id=str(hex_id),
+            wall_id=int(str(wall_id)),
+            shelve_id=int(str(shelve_id)),
+            book_id=int(str(book_id)),
+            page_id=int(str(page_id)),
+        )
+        return location
 
-        wall_id = self.get_user_input(self.browse_menu_wall_text, "int", 4) - 1
-        shelve_id = self.get_user_input(self.browse_menu_shelve_text, "int", 5) - 1
-        book_id = self.get_user_input(self.browse_menu_book_text, "int", 32) - 1
-        page_id = self.get_user_input(self.browse_menu_page_text, "int", 410) - 1
+    def get_text_from_location(self, location: Location) -> str:
         page_location = (
-            (self.hex_conversion.decode(hex_id) * self.topology.pages_per_hex)
-            + (wall_id * self.topology.pages_per_wall)
-            + (shelve_id * self.topology.pages_per_shelve)
-            + (book_id * self.topology.pages_per_book)
-            + page_id
+            (self.hex_conversion.decode(location.hex_id) * self.topology.pages_per_hex)
+            + ((location.wall_id - 1) * self.topology.pages_per_wall)
+            + ((location.shelve_id - 1) * self.topology.pages_per_shelve)
+            + ((location.book_id - 1) * self.topology.pages_per_book)
+            + (location.page_id - 1)
         )
-        text = self.conversion.encode(page_location)
-        return (
-            Location(
-                hex_id=str(hex_id),
-                wall_id=str(wall_id + 1),
-                shelve_id=str(shelve_id + 1),
-                book_id=str(book_id + 1),
-                page_id=str(page_id + 1),
-            ),
-            text,
-        )
+        return self.conversion.encode(page_location)
 
-    def get_location(self, text: str) -> Location:
+    def get_location_from_text(self, text: str) -> Location:
         location = self.conversion.decode(text)
         hex_id = Size(
             value=location // self.topology.pages_per_hex,
@@ -339,10 +457,10 @@ class Library:
         hex_id = self.hex_conversion.encode(hex_id.value)
         return Location(
             hex_id=hex_id,
-            wall_id=str(wall_id),
-            shelve_id=str(shelve_id),
-            book_id=str(book_id),
-            page_id=str(page_id),
+            wall_id=int(str(wall_id)),
+            shelve_id=int(str(shelve_id)),
+            book_id=int(str(book_id)),
+            page_id=int(str(page_id)),
         )
 
     def get_user_input(self, text: str, value_type: str = "int", bound: int = 0) -> str:
@@ -352,6 +470,10 @@ class Library:
             user_bound = user_input if value_type == "int" else len(user_input)
             if self.test_bound(user_bound, bound):
                 return user_input
+
+    @staticmethod
+    def clear_screen():
+        os.system("cls" if os.name == "nt" else "clear")
 
     @staticmethod
     def get_stamp(location: Location) -> str:
