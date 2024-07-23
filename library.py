@@ -413,11 +413,11 @@ class Library:
         book_id = self.get_user_input(self.browse_menu_book_text, "int", 32)
         page_id = self.get_user_input(self.browse_menu_page_text, "int", 410)
         location = Location(
-            hex_id=str(hex_id),
-            wall_id=int(str(wall_id)),
-            shelve_id=int(str(shelve_id)),
-            book_id=int(str(book_id)),
-            page_id=int(str(page_id)),
+            hex_id=hex_id,
+            wall_id=wall_id,
+            shelve_id=shelve_id,
+            book_id=book_id,
+            page_id=page_id,
         )
         return location
 
@@ -457,10 +457,10 @@ class Library:
         hex_id = self.hex_conversion.encode(hex_id.value)
         return Location(
             hex_id=hex_id,
-            wall_id=int(str(wall_id)),
-            shelve_id=int(str(shelve_id)),
-            book_id=int(str(book_id)),
-            page_id=int(str(page_id)),
+            wall_id=wall_id.value,
+            shelve_id=shelve_id.value,
+            book_id=book_id.value,
+            page_id=page_id.value,
         )
 
     def get_user_input(self, text: str, value_type: str = "int", bound: int = 0) -> str:
